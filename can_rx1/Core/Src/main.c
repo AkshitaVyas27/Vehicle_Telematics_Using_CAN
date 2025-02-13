@@ -52,11 +52,13 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 uint16_t previousDistance = 0;  // Variable to store previous distance
-float speed = 0.0;// Variable to store calculated speed
+uint32_t speed = 0;// Variable to store calculated speed
 uint32_t previousTime = 0;  // Variable to store previous time in milliseconds
 uint32_t currentTime = 0;
-uint8_t temperature;
+uint16_t temperature;
 int datacheck = 0;
+int sensor;
+uint16_t distance=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -79,38 +81,59 @@ uint8_t TxData[8];
 uint8_t RxData[8];
 uint32_t TxMailbox;
 
-//int datacheck = 0;
+
 
 
 void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan){
 	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO1, &RxHeader, RxData);
-	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
-	if(RxHeader.DLC == 3)
+	if(RxHeader.DLC == 2)
 		datacheck = 1;
-	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
+//mq
+	if(RxHeader.StdId==0x446){
+				sensor=1;
+				HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
+				HAL_Delay(500);
+				HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
+			}
+
+
+	//lm
+		if(RxHeader.StdId==0x445){
+					sensor=2;
+					HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
+					HAL_Delay(500);
+				    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
+				}
+		//ultra
+			if(RxHeader.StdId==0x44A){
+						sensor=3;
+						HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
+						HAL_Delay(500);
+						HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
 
 }
-
+}
 
 void Calculate_Speed(void)
 {
     // Calculate the change in distance
-    int16_t distanceChange = RxData[2] - previousDistance;
+	distance=(RxData[0]<<8)|RxData[1];
+    int16_t distanceChange = distance - previousDistance;
 
     // Get the current time in milliseconds
     currentTime = HAL_GetTick();
 
     // Calculate the time interval (in seconds)
-    float timeInterval = (currentTime - previousTime) / 1000.0f; // Convert ms to seconds
+    uint8_t timeInterval = (currentTime - previousTime) / 1000; // Convert ms to seconds
 
     // Calculate speed if the time interval is greater than zero
-    if (timeInterval > 0.1f)
+    if (timeInterval > 0)
     {
-        speed = (float)abs(distanceChange) / timeInterval;  // Speed in cm/s
+        speed = abs(distanceChange) / timeInterval;  // Speed in cm/s
     }
 
     // Store the current distance and time for the next measurement
-    previousDistance = RxData[2];
+    previousDistance = distance;
     previousTime = currentTime;
 
 }
@@ -128,8 +151,8 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	char str[64];
-	char str1[64];
+	char str[64],str1[64],str2[64];
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -181,36 +204,66 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
 	   if(datacheck){
-	  			 if (RxData[0] >=220 )
+
+	   if(sensor==1){
+		   uint16_t mq=(RxData[0]<<8)|RxData[1];
+
+	  			 if (mq >=900 )
 	  			 	  {
 	  			 		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15,GPIO_PIN_SET);
-	  			 		  HAL_Delay(1000);
+	  			 		  HAL_Delay(8000);
 	  			 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15,GPIO_PIN_RESET);
+	  			 		sprintf(str2, "ALCOHOL DETECTED!!! ");
+	  			 			  			 	 			 HAL_UART_Transmit(&huart2,(uint8_t*)str, strlen(str),HAL_MAX_DELAY );
+	  			 			  			 	 			 HAL_Delay(1000);
+
 	  			 		  }
+	   }
 
 	  		//MQ3_CHECK_END==================================================
 
 
 
 	  		//TEMPERATURE_COUNTING===========================================
-	  			float Voltage = ((RxData[1]*5)/4095.0) ;
-	  			 	 	  	  temperature = Voltage*100.0 ;
+	   if(sensor==2){
+	  			uint16_t lm=(RxData[0]<<8)|RxData[1];
+
+	  			uint16_t Voltage = ((lm*3.3)/4095) ;
+	  			 	 	  	  temperature = Voltage*100 ;
+	  			 	 	      sprintf(str, "temperature=%d\r\n ",temperature);
+	  			 	 	 		 HAL_UART_Transmit(&huart2,(uint8_t*)str, strlen(str),HAL_MAX_DELAY );
+	  			 	 	 		 HAL_Delay(1000);
+
+	  			 	 	 		 datacheck = 0;
+
+	   }
+
+
+
 	  		//Temp_end=======================================================
 
 
 
 	  		//ULTRASONIC_SPEED==============================================
+		 if(sensor==3){
 	  			 	 	 	Calculate_Speed();
+	  			 	 	sprintf(str1, "Distance=%d\r\nSpeed=%ld\r\n ", distance,speed );
+	  			 	 			 HAL_UART_Transmit(&huart2,(uint8_t*)str, strlen(str),HAL_MAX_DELAY );
+	  			 	 			 HAL_Delay(1000);
+	  			 	 		 datacheck=0;
+
+
+
+
+		 }
 	  	    //SPEED_END=====================================================
 	  		  //}
-	  		 //sprintf(str1, "Alcohol=%d\r\n Temperature=%d\r\n Speed=%d", RxData[0], RxData[1],RxData[2]);
-	  		sprintf(str, "alcohol=%d\r\n temperature=%d\r\n speed=%d\r\n", RxData[0], temperature,(uint8_t)speed);
-	  		 HAL_UART_Transmit(&huart2,(uint8_t*)str, strlen(str),HAL_MAX_DELAY );
-	  		 HAL_Delay(1000);
 
-	  		 datacheck = 0;
+	  		 //sprintf(str1, "Alcohol=%d\r\n Temperature=%d\r\n Speed=%d", RxData[0], RxData[1],RxData[2]);
+
 	  		 HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
-	    }
+
+  }
   }
   /* USER CODE END 3 */
 }
@@ -301,7 +354,7 @@ static void MX_CAN1_Init(void)
   canfilterconfig.FilterIdHigh = 0x446<<5;
   canfilterconfig.FilterIdLow = 0x0000;
   canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
-  canfilterconfig.FilterMaskIdHigh = 0x446<<5;
+  canfilterconfig.FilterMaskIdHigh = 0xFF0<<5;
   canfilterconfig.FilterMaskIdLow = 0x0000;
   canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT;
   canfilterconfig.SlaveStartFilterBank = 14;

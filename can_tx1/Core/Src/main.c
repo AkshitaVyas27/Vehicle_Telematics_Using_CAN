@@ -55,7 +55,7 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 //uint8_t temperature=0;
-volatile uint8_t distance=0;
+volatile uint16_t distance=0;
 volatile uint8_t isReadingFinished=0;
 volatile uint8_t isRisingCaptured=0 ;
 volatile uint32_t InputCaptureValue_1=0;
@@ -66,8 +66,8 @@ volatile int datacheck;
 
 
 
-uint8_t mq;
-uint8_t lm;
+uint16_t mq;
+uint16_t lm;
 char str[64];
 //uint16_t previousDistance = 0;  // Variable to store previous distance
 //uint8_t speed = 0;// Variable to store calculated speed
@@ -96,7 +96,8 @@ CAN_RxHeaderTypeDef RxHeader;
 
 uint8_t TxData[8];
 uint8_t RxData[8];
-uint32_t TxMailbox;
+uint8_t TxData1[8];
+uint32_t TxMailbox[2];
 
 /* USER CODE BEGIN 0 */
 
@@ -239,7 +240,7 @@ HAL_CAN_Start(&hcan1);
 	  	 	  HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
 	  	 	  mq = HAL_ADC_GetValue(&hadc1);
 	  	 	  HAL_ADC_Stop(&hadc1);
-	  	 	  if (mq >= 1000)
+	  	 	  if (mq >= 900)
 	  	 	  {
 	  	 		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14,GPIO_PIN_SET);
 	  	 		  }
@@ -254,7 +255,7 @@ HAL_CAN_Start(&hcan1);
 	  	 	 	  	  lm = HAL_ADC_GetValue(&hadc2);
 	  	 	 	  	  HAL_ADC_Stop(&hadc2);
 
-	  	 	 	  	  //float Voltage = ((lm*3.3)/4095.0) ;
+	  	 	 	  	 // uint16_t Voltage = ((lm*3.3)/4095.0) ;
 	  	 	 	  	  //temperature = Voltage*100.0 ;
 	  	 	 //LM35_END..................................................................
 
@@ -268,17 +269,40 @@ HAL_CAN_Start(&hcan1);
 
 	  //can_message_sending........................................
 	  //SENDING===================================================
-	  	 	 	  TxHeader.DLC = 3;
+	  	 	 	  TxHeader.DLC = 2;
 	  	 	 	  TxHeader.IDE = CAN_ID_STD;
 	  	 	 	  TxHeader.RTR = CAN_RTR_DATA;
 	  	 	 	  TxHeader.StdId = 0x446;
 	  	 	 	  TxHeader.ExtId = 0x00;
 	  	 	 	  TxHeader.TransmitGlobalTime = DISABLE;
-	  	 	 	  TxData[0]=mq;
-	  	 	 	  TxData[1]=lm;
-	  	 	 	  TxData[2]=distance;
+	  	 	 	  TxData[0]=(uint8_t )mq&0xFF;
+	  	 	 	  TxData[1]=(uint8_t)(mq>>8)&0xFF;
+	  	 	 	 HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox[0]);
 
-	  	 	 	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
+	  	 	  TxHeader.DLC = 2;
+
+	  	 	 	  	 	 	  TxHeader.IDE = CAN_ID_STD;
+	  	 	 	  	 	 	  TxHeader.RTR = CAN_RTR_DATA;
+	  	 	 	  	 	 	  TxHeader.StdId = 0x445;
+	  	 	 	  	 	 	  TxHeader.ExtId = 0x00;
+	  	 	 	  	 	 	  TxHeader.TransmitGlobalTime = DISABLE;
+	  	 	 	  	       	  TxData[0]= (uint8_t ) lm & 0xFF;
+	  	 	 	  	 		  TxData[1]= (uint8_t)(lm>>8) & 0xFF;
+	  	 	 	  	 	 	 HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox[0]);
+
+	  	 	 	  	  	  	  	  TxHeader.DLC = 2;
+	  	 	 		  	 	 	  TxHeader.IDE = CAN_ID_STD;
+	  	 	 		  	 	 	  TxHeader.RTR = CAN_RTR_DATA;
+	  	 	 		  	 	 	  TxHeader.StdId =0x44A;
+
+	  	 	 		  	 	 	  TxHeader.ExtId = 0x00;
+	  	 	 		  	 	 	  TxHeader.TransmitGlobalTime = DISABLE;
+
+	  	 	 	            TxData[0] = (uint8_t) (distance & 0xFF);
+	  	 	 				TxData[1] = (uint8_t) ((distance >> 8) & 0xFF);
+
+
+	  	 	 	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox[1]);
 	  	 	 	//SENT======================================================
 
 
@@ -326,7 +350,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 4;
-  RCC_OscInitStruct.PLL.PLLN = 168;
+  RCC_OscInitStruct.PLL.PLLN = 72;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 7;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
@@ -340,10 +364,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
