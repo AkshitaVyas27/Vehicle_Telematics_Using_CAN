@@ -91,26 +91,19 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan){
 //mq
 	if(RxHeader.StdId==0x446){
 				sensor=1;
-				HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
-				HAL_Delay(500);
-				HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
+				
 			}
 
 
 	//lm
 		if(RxHeader.StdId==0x445){
 					sensor=2;
-					HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
-					HAL_Delay(500);
-				    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
+					
 				}
 		//ultra
 			if(RxHeader.StdId==0x44A){
 						sensor=3;
-						HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
-						HAL_Delay(500);
-						HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
-
+						
 }
 }
 
@@ -214,8 +207,8 @@ int main(void)
 	  			 		  HAL_Delay(8000);
 	  			 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15,GPIO_PIN_RESET);
 	  			 		sprintf(str2, "ALCOHOL DETECTED!!! ");
-	  			 			  			 	 			 HAL_UART_Transmit(&huart2,(uint8_t*)str, strlen(str),HAL_MAX_DELAY );
-	  			 			  			 	 			 HAL_Delay(1000);
+	  			 	        HAL_UART_Transmit(&huart2,(uint8_t*)str, strlen(str),HAL_MAX_DELAY );
+	  			 	        HAL_Delay(1000);
 
 	  			 		  }
 	   }
@@ -259,8 +252,7 @@ int main(void)
 	  	    //SPEED_END=====================================================
 	  		  //}
 
-	  		 //sprintf(str1, "Alcohol=%d\r\n Temperature=%d\r\n Speed=%d", RxData[0], RxData[1],RxData[2]);
-
+	  		 
 	  		 HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
 
   }

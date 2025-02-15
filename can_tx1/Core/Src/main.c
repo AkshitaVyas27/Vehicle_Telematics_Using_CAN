@@ -306,7 +306,7 @@ HAL_CAN_Start(&hcan1);
 	  	 	 	//SENT======================================================
 
 
-	  	 	 	                     HAL_Delay(500);
+	  	 	 	                  
 	  	 	 		 	  			  if(datacheck){
 	  	 	 		 	  				  for(int i = 0; i<RxData[1]; i++){
 	  	 	 		 	  					  HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_15);
@@ -315,10 +315,7 @@ HAL_CAN_Start(&hcan1);
 	  	 	 		 	  				  datacheck = 0;
 	  	 	 		 	  			  }
 
-	  	 	 		 sprintf(str,"mq3=%d\r\nlm=%d\r\ndistance=%d\r\n", mq,lm,distance);
-	  	 	 		HAL_UART_Transmit(&huart2,(uint8_t*)str, sizeof(str), HAL_MAX_DELAY);
-	  	 	 		HAL_Delay(500);
-
+	  	 	 		
 
     /* USER CODE END WHILE */
 
